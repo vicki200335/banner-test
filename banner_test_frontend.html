@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>动态Banner点击测试</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f0f0f0; }
+        .banner-container { display: flex; justify-content: space-around; margin-bottom: 20px; }
+        .banner { width: 18%; cursor: pointer; border: 2px solid transparent; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.2); background: white; transition: border-color 0.3s; }
+        .banner:hover { border-color: #007BFF; }
+        .banner img { width: 100%; display: block; }
+        .banner-title { text-align: center; padding: 8px 0; font-weight: bold; }
+        #submit-btn { display: block; margin-top: 20px; padding: 10px 20px; font-size: 16px; background-color: #007BFF; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        #submit-btn:disabled { background-color: #aaa; cursor: not-allowed; }
+        .question-container { display: none; margin-top: 20px; }
+        textarea { width: 100%; height: 80px; padding: 8px; font-size: 14px; border-radius: 5px; border: 1px solid #ccc; resize: none; }
+        .message { margin-top: 20px; font-weight: bold; color: green; }
+    </style>
+</head>
+<body>
+    <h1>请选择您喜欢的Banner方案（只能选择一个）</h1>
+    <div class="banner-container" id="banner-container">
+        <div class="banner" data-id="1"><img src="banner1.jpg" alt="Banner 1"><div class="banner-title">方案1</div></div>
+        <div class="banner" data-id="2"><img src="banner2.jpg" alt="Banner 2"><div class="banner-title">方案2</div></div>
+        <div class="banner" data-id="3"><img src="banner3.jpg" alt="Banner 3"><div class="banner-title">方案3</div></div>
+        <div class="banner" data-id="4"><img src="banner4.jpg" alt="Banner 4"><div class="banner-title">方案4</div></div>
+        <div class="banner" data-id="5"><img src="banner5.jpg" alt="Banner 5"><div class="banner-title">方案5</div></div>
+    </div>
+    <button id="next-btn" disabled>下一步</button>
+
+    <div class="question-container" id="question-container">
+        <h2>请回答您记住的关键词</h2>
+        <textarea id="keyword-answer" placeholder="请输入关键词..."></textarea>
+        <button id="submit-btn" disabled>提交</button>
+    </div>
+
+    <div class="message" id="message"></div>
+
+    <script>
+        // 防止用户重复提交，使用localStorage存储提交状态
+        const hasSubmitted = localStorage.getItem('bannerTestSubmitted');
+        if (hasSubmitted) {
+            document.body.innerHTML = '<h2>您已提交过，感谢您的参与！</h2>';
+        } else {
+            const banners = document.querySelectorAll('.banner');
+            let selectedBannerId = null;
+            const nextBtn = document.getElementById('next-btn');
+            const questionContainer = document.getElementById('question-container');
+            const submitBtn = document.getElementById('submit-btn');
+            const keywordAnswer = document.getElementById('keyword-answer');
+            const message = document.getElementById('message');
+
+            banners.forEach(banner => {
+                banner.addEventListener('click', () => {
+                    banners.forEach(b => b.style.borderColor = 'transparent');
+                    banner.style.borderColor = '#007BFF';
+                    selectedBannerId = banner.getAttribute('data-id');
+                    nextBtn.disabled = false;
+                });
+            });
+
+            // 确保点击下一步后，banner选择隐藏，问题填写显示，且禁止返回上一页
+            nextBtn.addEventListener('click', () => {
+                if (!selectedBannerId) return;
+                document.getElementById('banner-container').style.display = 'none';
+                nextBtn.style.display = 'none';
+                questionContainer.style.display = 'block';
+                // 禁止返回上一页
+                history.pushState(null, null, location.href);
+                window.onpopstate = function () {
+                    history.go(1);
+                };
+            });
+
+            // 监听关键词输入，启用提交按钮
+            keywordAnswer.addEventListener('input', () => {
+                submitBtn.disabled = keywordAnswer.value.trim() === '';
+            });
+
+            // 提交按钮点击事件
+            submitBtn.addEventListener('click', () => {
+                const answer = keywordAnswer.value.trim();
+                if (!answer) {
+                    alert('请输入关键词');
+                    return;
+                }
+
+                // 发送数据到后端
+                fetch('/api/banner_test/submit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ bannerId: selectedBannerId, keyword: answer, userId: 'user_' + Date.now() })
+                })
+                // 同时发送点击统计数据，确保点击次数被统计
+                fetch('/api/banner_test/click', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ bannerId: selectedBannerId, userId: 'user_' + Date.now() })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        message.textContent = '提交成功，感谢您的参与！';
+                        localStorage.setItem('bannerTestSubmitted', 'true');
+                        submitBtn.disabled = true;
+                        keywordAnswer.disabled = true;
+                    } else {
+                        alert(data.error || '提交失败，请稍后重试');
+                    }
+                })
+                .catch(() => {
+                    alert('提交失败，请检查网络连接');
+                });
+            });
+        }
+    </script>
+</body>
+</html>
