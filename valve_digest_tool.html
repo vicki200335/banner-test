@@ -1,194 +1,97 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>外科瓣膜顶刊邮件推送工具</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 0; background: #f5f7fb; color: #1d2a3a; }
-        .container { max-width: 1080px; margin: 24px auto; padding: 0 16px; }
-        h1 { margin-bottom: 8px; }
-        .subtitle { color: #5a6b7c; margin-bottom: 20px; }
-        .panel { background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); }
-        .actions { display: flex; gap: 10px; flex-wrap: wrap; }
-        button { border: none; border-radius: 8px; background: #2f7cf6; color: white; padding: 10px 14px; cursor: pointer; }
-        button.secondary { background: #627083; }
-        table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-        th, td { text-align: left; border-bottom: 1px solid #e7ebf0; padding: 8px; vertical-align: top; font-size: 14px; }
-        .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; background: #e8f0ff; color: #3058a6; }
-        .log { background: #0f1720; color: #c2d0e4; min-height: 100px; max-height: 220px; overflow: auto; border-radius: 8px; padding: 10px; white-space: pre-wrap; }
-        .article-title { font-weight: 600; }
-        .field { display: flex; flex-direction: column; gap: 6px; max-width: 520px; }
-        .field input { padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; }
-        .hint { color: #64748b; font-size: 13px; }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>外科瓣膜情报聚合助手</title>
+  <style>
+    body { font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif; background:#f3f6fb; margin:0; color:#1f2937; }
+    .wrap { max-width: 1080px; margin: 24px auto; padding: 0 16px; }
+    .card { background:#fff; border-radius:12px; box-shadow:0 2px 10px rgba(0,0,0,.08); padding:16px; margin-bottom:14px; }
+    button { background:#2563eb; color:#fff; border:0; border-radius:8px; padding:10px 14px; cursor:pointer; }
+    input { width:100%; max-width:420px; padding:10px; border-radius:8px; border:1px solid #cbd5e1; margin-top:8px; }
+    .muted { color:#64748b; font-size:13px; }
+    .item { border:1px solid #e2e8f0; border-radius:8px; padding:12px; margin-top:10px; }
+    .item h4 { margin:0 0 8px 0; }
+    .meta { font-size:13px; color:#475569; margin-bottom:8px; }
+    pre { white-space:pre-wrap; background:#0f172a; color:#e2e8f0; padding:10px; border-radius:8px; max-height:260px; overflow:auto; }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h1>外科瓣膜顶刊邮件推送（简化版）</h1>
-        <div class="subtitle">流程：同步期刊源 → AI提炼 → 发送到你的邮箱</div>
-
-        <div class="panel">
-            <h3>1) 同步最新文献</h3>
-            <div class="actions">
-                <button id="sync-btn">立即同步</button>
-                <button id="refresh-btn" class="secondary">刷新文章列表</button>
-            </div>
-            <div id="sync-result" style="margin-top:10px;color:#334155;"></div>
-        </div>
-
-        <div class="panel">
-            <h3>2) 最新文章</h3>
-            <table>
-                <thead>
-                    <tr>
-                        <th>选择</th>
-                        <th>标题</th>
-                        <th>来源</th>
-                        <th>发布时间</th>
-                        <th>状态</th>
-                    </tr>
-                </thead>
-                <tbody id="article-body"></tbody>
-            </table>
-            <div class="actions" style="margin-top:12px;">
-                <button id="summarize-btn" class="secondary">AI提炼所选文章</button>
-            </div>
-        </div>
-
-        <div class="panel">
-            <h3>3) 发送到邮箱</h3>
-            <div class="field">
-                <label for="email-input">收件邮箱</label>
-                <input id="email-input" type="email" placeholder="例如：yourname@example.com" />
-                <div class="hint">如果留空，后端会使用环境变量 OWNER_EMAIL。</div>
-            </div>
-            <div class="actions" style="margin-top:12px;">
-                <button id="send-btn">发送到我的邮箱</button>
-            </div>
-        </div>
-
-        <div class="panel">
-            <h3>运行日志</h3>
-            <div id="log" class="log"></div>
-        </div>
+  <div class="wrap">
+    <h1>外科瓣膜（Surgical Valve）近 30 天更新聚合</h1>
+    <div class="card">
+      <button id="fetchBtn">获取并处理最新行业更新（近 30 天）</button>
+      <p class="muted">将从 PubMed、Crossref、行业 RSS 自动抓取，去重、排序后取前 15 条并调用大模型重写。</p>
     </div>
 
-    <script>
-        const logBox = document.getElementById('log');
-        const articleBody = document.getElementById('article-body');
-        const syncResult = document.getElementById('sync-result');
-        const emailInput = document.getElementById('email-input');
+    <div class="card">
+      <h3>处理结果</h3>
+      <div id="result"></div>
+    </div>
 
-        let articles = [];
+    <div class="card">
+      <h3>发送邮件</h3>
+      <label>收件人邮箱</label>
+      <input id="recipient" type="email" placeholder="name@example.com" />
+      <div style="margin-top:10px;"><button id="sendBtn">发送邮件</button></div>
+      <p id="sendStatus" class="muted"></p>
+    </div>
+  </div>
 
-        function log(message) {
-            logBox.textContent = `[${new Date().toLocaleTimeString()}] ${message}\n` + logBox.textContent;
+  <script>
+    const result = document.getElementById('result');
+    const fetchBtn = document.getElementById('fetchBtn');
+    const sendBtn = document.getElementById('sendBtn');
+    const sendStatus = document.getElementById('sendStatus');
+
+    function esc(v='') { return v.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+    fetchBtn.addEventListener('click', async () => {
+      fetchBtn.disabled = true;
+      fetchBtn.textContent = '处理中，请稍候...';
+      result.innerHTML = '正在抓取与处理...';
+      try {
+        const r = await fetch('/api/fetch_and_process', { method: 'POST' });
+        const data = await r.json();
+        if (!data.success) throw new Error(data.error || '未知错误');
+
+        if (!data.items.length) {
+          result.innerHTML = '<p>未检索到近 30 天相关内容。</p>';
+          return;
         }
 
-        function getSelectedArticleId() {
-            const selected = document.querySelector('input[name="selected-article"]:checked');
-            return selected ? selected.value : null;
-        }
+        result.innerHTML = `<p>已处理 ${data.count} 条。</p>` + data.items.map(it => `
+          <div class="item">
+            <h4>${esc(it.title || '无标题')}</h4>
+            <div class="meta">${esc(it.published_at || '')} | ${esc(it.source || '')} | <a href="${esc(it.link || '#')}" target="_blank">原文</a></div>
+            <pre>${esc(it.processed_markdown || '')}</pre>
+          </div>
+        `).join('');
+      } catch (e) {
+        result.innerHTML = `<p style="color:#dc2626;">处理失败：${esc(e.message)}</p>`;
+      } finally {
+        fetchBtn.disabled = false;
+        fetchBtn.textContent = '获取并处理最新行业更新（近 30 天）';
+      }
+    });
 
-        async function loadConfig() {
-            const response = await fetch('/api/valve_tool/config');
-            const data = await response.json();
-            if (data.ownerEmail) {
-                emailInput.value = data.ownerEmail;
-            }
-            log(`邮件配置状态：${data.mailReady ? '已配置SMTP' : '未配置SMTP'}`);
-        }
-
-        async function loadArticles() {
-            const response = await fetch('/api/valve_tool/articles?status=all&limit=30');
-            const data = await response.json();
-            articles = data;
-
-            if (!articles.length) {
-                articleBody.innerHTML = '<tr><td colspan="5">暂无数据，请先同步。</td></tr>';
-                return;
-            }
-
-            articleBody.innerHTML = articles.map((article) => `
-                <tr>
-                    <td><input type="radio" name="selected-article" value="${article.id}" /></td>
-                    <td><div class="article-title">${article.title}</div><a href="${article.link}" target="_blank">查看原文</a></td>
-                    <td>${article.sourceName}</td>
-                    <td>${new Date(article.pubDate).toLocaleString()}</td>
-                    <td><span class="pill">${article.status}</span></td>
-                </tr>
-            `).join('');
-        }
-
-        document.getElementById('sync-btn').addEventListener('click', async () => {
-            log('开始同步期刊源...');
-            const response = await fetch('/api/valve_tool/sources/sync', { method: 'POST' });
-            const data = await response.json();
-            if (data.success) {
-                syncResult.textContent = `新增 ${data.created} 篇，当前总计 ${data.totalArticles} 篇。`;
-                if (data.errors && data.errors.length) {
-                    log(`部分来源失败：${JSON.stringify(data.errors)}`);
-                }
-                log(`同步完成：新增 ${data.created} 篇`);
-                await loadArticles();
-            } else {
-                log('同步失败：' + (data.error || '未知错误'));
-            }
+    sendBtn.addEventListener('click', async () => {
+      const recipient = document.getElementById('recipient').value.trim();
+      sendStatus.textContent = '邮件发送中...';
+      try {
+        const r = await fetch('/api/send_email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ recipient })
         });
-
-        document.getElementById('refresh-btn').addEventListener('click', async () => {
-            await loadArticles();
-            log('已刷新文章列表');
-        });
-
-        document.getElementById('summarize-btn').addEventListener('click', async () => {
-            const articleId = getSelectedArticleId();
-            if (!articleId) {
-                alert('请先选择一篇文章');
-                return;
-            }
-            log(`开始AI提炼：${articleId}`);
-            const response = await fetch(`/api/valve_tool/articles/${articleId}/summarize`, { method: 'POST' });
-            const data = await response.json();
-            if (data.success) {
-                log('AI提炼完成');
-                await loadArticles();
-            } else {
-                log('AI提炼失败：' + (data.error || '未知错误'));
-            }
-        });
-
-        document.getElementById('send-btn').addEventListener('click', async () => {
-            const articleId = getSelectedArticleId();
-            const email = emailInput.value.trim();
-
-            if (!articleId) {
-                alert('请先选择文章');
-                return;
-            }
-
-            log(`开始发邮件：文章 ${articleId}，邮箱 ${email || 'OWNER_EMAIL'}`);
-            const response = await fetch('/api/valve_tool/send_email', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ articleId, email })
-            });
-            const data = await response.json();
-
-            if (data.success) {
-                log(`发送成功：${data.delivery.toEmail}，messageId=${data.delivery.messageId || 'N/A'}`);
-                await loadArticles();
-            } else {
-                log('发送失败：' + (data.error || '未知错误'));
-            }
-        });
-
-        (async function init() {
-            await loadConfig();
-            await loadArticles();
-            log('页面初始化完成');
-        })();
-    </script>
+        const data = await r.json();
+        if (!data.success) throw new Error(data.error || '未知错误');
+        sendStatus.textContent = '邮件发送成功。';
+      } catch (e) {
+        sendStatus.textContent = `发送失败：${e.message}`;
+      }
+    });
+  </script>
 </body>
 </html>

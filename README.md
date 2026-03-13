@@ -1,112 +1,49 @@
-# 外科瓣膜顶刊自动邮件工具（简化版）
+# 外科瓣膜行业更新单页应用（Flask）
 
-按你的要求，当前版本已简化为：
+## 终端预览链接
+服务启动后，浏览器打开：
+- `http://127.0.0.1:3000/`
+- 或 `http://127.0.0.1:3000/valve_digest_tool.html`
 
-1. 自动同步两个来源：PubMed + CrossRef。
-2. AI 提炼文章要点（未配置 OpenAI Key 时自动使用 fallback 文案）。
-3. 只发送到你自己的邮箱（不再对接企业微信/飞书等下游系统）。
+> 如果你在远程开发环境（如 VS Code Remote / 云端容器），请把 **3000 端口**做端口转发，再访问转发后的预览链接。
 
-## 1. 环境要求
-
-- Node.js 18+（建议 20+）
-- npm
-- 系统安装 `sendmail` 命令（用于真正发送邮件）
-
-## 2. 安装依赖
-
+## 一键启动（推荐）
 ```bash
-npm install
+python3 -m venv .venv
+source .venv/bin/activate
+pip install flask requests feedparser
+python3 app.py
 ```
 
-## 3. 邮件环境变量配置
+## 配置说明（你只需要改这些）
+在启动前设置以下环境变量：
 
 ```bash
-export FROM_EMAIL=your_sender@example.com
-export OWNER_EMAIL=yourname@example.com
+# 1) 大模型
+export API_KEY="你的大模型API Key"
+export LLM_BASE_URL="https://api.openai.com/v1/chat/completions"   # 如用其他供应商，改为其兼容地址
+export LLM_MODEL="gpt-4o-mini"
+
+# 2) 邮件 SMTP
+export SMTP_SERVER="smtp.gmail.com"
+export SMTP_PORT="587"
+export SENDER_EMAIL="你的发件邮箱"
+export SENDER_PASSWORD="你的邮箱授权码/应用专用密码"
 ```
 
-说明：
+### 邮箱怎么配
+1. 登录你的邮箱后台，开启 SMTP。
+2. 生成“应用专用密码”或“授权码”（不要用登录密码）。
+3. 把授权码填到 `SENDER_PASSWORD`。
+4. 前端页面底部输入收件人邮箱，点击“发送邮件”。
 
-- `OWNER_EMAIL` 是默认收件邮箱。前端留空邮箱时会自动使用它。
-- 发送时后端调用系统 `sendmail -t -i`，请确保机器上已有可用的 sendmail 配置。
+## RSS 源配置
+`app.py` 顶部有 `INDUSTRY_RSS_FEEDS`，已预置 TCTMD、Medscape 及厂家源。你拿到更准确的官方 XML 后，直接替换列表即可。
 
-## 4. 启动服务
+## 当前接口
+- `POST /api/fetch_and_process`：抓取近 30 天数据、去重排序、取前 15 条并调用模型处理。
+- `POST /api/send_email`：将处理结果以 HTML 邮件发送到收件人。
 
-```bash
-npm start
-```
-
-默认端口 `3000`。
-
-## 5. 页面使用
-
-打开：
-
-- `http://localhost:3000/valve_digest_tool.html`
-
-操作顺序：
-
-1. 点击「立即同步」拉取最新文章。
-2. 选择一篇文章。
-3. 点击「AI提炼所选文章」（可选，不点也会在发信前自动提炼）。
-4. 输入你的邮箱（或留空用 `OWNER_EMAIL`）。
-5. 点击「发送到我的邮箱」。
-
-## 6. API（仅保留邮件流程）
-
-### 6.1 查看邮件配置状态
-
-```bash
-curl http://localhost:3000/api/valve_tool/config
-```
-
-### 6.2 同步来源
-
-```bash
-curl -X POST http://localhost:3000/api/valve_tool/sources/sync
-```
-
-### 6.3 查看文章
-
-```bash
-curl "http://localhost:3000/api/valve_tool/articles?status=all&limit=10"
-```
-
-### 6.4 AI 提炼单篇文章
-
-```bash
-curl -X POST http://localhost:3000/api/valve_tool/articles/<articleId>/summarize
-```
-
-### 6.5 发送到邮箱
-
-```bash
-curl -X POST http://localhost:3000/api/valve_tool/send_email \
-  -H "Content-Type: application/json" \
-  -d '{"articleId":"<articleId>","email":"yourname@example.com"}'
-```
-
-> `email` 可省略，省略时使用 `OWNER_EMAIL`。
-
-### 6.6 查看发送日志
-
-```bash
-curl http://localhost:3000/api/valve_tool/logs
-```
-
-## 7. AI 配置（可选）
-
-如需调用 OpenAI：
-
-```bash
-export OPENAI_API_KEY=your_key
-export OPENAI_MODEL=gpt-4o-mini
-```
-
-未配置 `OPENAI_API_KEY` 时，系统会自动使用 fallback 摘要。
-
-## 8. 注意事项
-
-- 当前是 MVP，数据内存存储，重启服务会丢失。
-- PubMed / CrossRef 接口可用性依赖第三方服务状态与限流策略。
-- AI 内容仅作辅助，不替代临床判断。
+## 备注
+- 若未配置 `API_KEY`，系统会返回 fallback 内容（不会中断流程）。
+- 所有外部请求都带有异常处理，单个来源失败不会导致整个任务中断。
